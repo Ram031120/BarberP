@@ -520,12 +520,22 @@ with cal_tab:
                         st.success("You have been added to the waitlist! We will contact you if a slot opens up.")
         else:
             # Render time slot buttons in a compact custom HTML grid (horizontally stacked, wrapping)
-            slots_per_row = 2  # You can adjust this for more/less columns
+            now = datetime.now()
+            is_today = (book_date == today)
             btn_html = '<div style="display:flex;flex-wrap:wrap;gap:16px 24px;">'
             for i, tm in enumerate(times):
                 time_str = tm.strftime('%H:%M')
-                btn_html += f'''<form action="" method="get" style="margin:0 0 12px 0;padding:0;display:inline;">
-                <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1em;padding:0.15em 1.5em;margin:0;min-width:90px;min-height:48px;cursor:pointer;display:inline-block;">{time_str}</button></form>'''
+                # Disable expired slots for today
+                expired = False
+                if is_today:
+                    slot_dt = datetime.combine(book_date, tm)
+                    if slot_dt <= now:
+                        expired = True
+                if expired:
+                    btn_html += f'''<button disabled style="background:#222;color:#888;border:1.5px solid #888;border-radius:10px;font-size:1em;padding:0.15em 1.5em;margin:0;min-width:90px;min-height:48px;opacity:0.5;">{time_str}</button>'''
+                else:
+                    btn_html += f'''<form action="" method="get" style="margin:0 0 12px 0;padding:0;display:inline;">
+                    <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1em;padding:0.15em 1.5em;margin:0;min-width:90px;min-height:48px;cursor:pointer;display:inline-block;">{time_str}</button></form>'''
             btn_html += '</div>'
             st.markdown(btn_html, unsafe_allow_html=True)
             # Handle button click via query param
