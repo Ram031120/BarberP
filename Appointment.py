@@ -375,7 +375,7 @@ def render_month_grid(barber_id: str, service_id: str):
 # Streamlit App
 # -----------------------------
 
-st.set_page_config(page_title="Barber Booking", page_icon="💈", layout="wide")
+st.set_page_config(page_title="The Groom Room", page_icon="488", layout="wide")
 # Enhanced mobile-friendly CSS for calendar grid
 st.markdown('''
     <style>
@@ -417,8 +417,39 @@ st.markdown('''
 init_db()
 ensure_session_defaults()
 
-st.title("💈 Barber Booking App")
-st.caption("Simple, local, and fast — take bookings with a built-in calendar.")
+# Custom header with emoji and new title
+st.markdown('<div style="display:flex;align-items:center;"><span style="font-size:2.5em;">✂️🪒</span><span style="background:#465a77;padding:0.2em 0.7em;margin-left:0.5em;border-radius:4px;color:#fff;font-size:2.3em;font-weight:bold;">The Groom Room</span></div>', unsafe_allow_html=True)
+st.markdown('<div style="margin-bottom:0.5em;"><em>“Book it. Own it. Style it.”</em></div>', unsafe_allow_html=True)
+
+# Pricing sidebar toggle state
+if 'show_pricing_sidebar' not in st.session_state:
+    st.session_state['show_pricing_sidebar'] = False
+
+# Show Pricing button in main area (always visible)
+if st.button('Show Pricing', key='show_pricing_btn') or st.session_state.get('show_pricing_sidebar', False):
+    st.session_state['show_pricing_sidebar'] = True
+    with st.sidebar:
+        st.markdown("""
+        ### ✂️🪒 BARBER SHOP NEW PRICE LIST
+        **Haircuts**
+        1. Men's Haircut .................... Rs 100  
+        2. Kids' Haircut (under 15) ......... Rs 75  
+        3. Seniors' Cut ..................... Rs 75  
+        **Beard & color**
+        1. Beard Trim ....................... Rs 50  
+        2. Shave Normal ..................... Rs 25  
+        3. Hair color / Dry ................. Rs 25  
+        **Combo Deals**
+        1. Haircut + hair color/Dry ......... Rs 125  
+        2. Haircut + Beard Trim ............. Rs 150  
+        3. Haircut + Shave + hair color/Dry  Rs 175  
+        """)
+        if st.button('Close', key='close_pricing_sidebar'):
+            st.session_state['show_pricing_sidebar'] = False
+# Hide sidebar if user interacts with main area (simulate click outside)
+def hide_sidebar_on_interaction():
+    if st.session_state.get('show_pricing_sidebar', False):
+        st.session_state['show_pricing_sidebar'] = False
 
 barbers_df = get_barbers()
 services_df = get_services()
@@ -426,51 +457,16 @@ services_df = get_services()
 # Tabs
 cal_tab, admin_tab = st.tabs(["Calendar", "Admin"])
 
-# Restore price list markdown in sidebar (no filters)
-with st.sidebar:
-    st.divider()
-    st.markdown("""
-    ### 💈 BARBER SHOP NEW PRICE LIST
-    
-    **Haircuts**
-    1. Men's Haircut .................... Rs 100  
-    2. Kids' Haircut (under 15) ......... Rs 75  
-    3. Seniors' Cut ..................... Rs 75  
-    
-    **Beard & color**
-    1. Beard Trim ....................... Rs 50  
-    2. Shave Normal ..................... Rs 25  
-    3. Hair color / Dry ................. Rs 25  
-    
-    **Combo Deals**
-    1. Haircut + hair color/Dry ......... Rs 125  
-    2. Haircut + Beard Trim ............. Rs 150  
-    3. Haircut + Shave + hair color/Dry  Rs 175  
-    """)
-
 with cal_tab:
-    st.subheader("Pick a day from the calendar")
-    # Option to use Streamlit's default date picker
-    use_default_picker = st.checkbox("Use Streamlit's default date picker", value=False)
+    st.subheader("Pick a date")
     # Use default barber/service (first in list) for calendar tab
     cal_barber_id = barbers_df.iloc[0]['id']
     cal_service_id = services_df.iloc[0]['id']
-    if use_default_picker:
-        picked_date = st.date_input("Pick a date", value=st.session_state['book_date'], min_value=date.today())
-        if picked_date != st.session_state['book_date']:
-            st.session_state['book_date'] = picked_date
-            st.session_state['scroll_to_times'] = True
-    else:
-        c1, c2, c3 = st.columns([1,2,1])
-        with c1:
-            if st.button("◀ Prev", use_container_width=True):
-                move_month(-1)
-        with c2:
-            st.info(month_label(st.session_state['cal_year'], st.session_state['cal_month']), icon="📅")
-        with c3:
-            if st.button("Next ▶", use_container_width=True):
-                move_month(1)
-        render_month_grid(cal_barber_id, cal_service_id)
+    picked_date = st.date_input("Pick a date", value=st.session_state['book_date'], min_value=date.today(), key='date_input_main')
+    if picked_date != st.session_state['book_date']:
+        st.session_state['book_date'] = picked_date
+        st.session_state['scroll_to_times'] = True
+        hide_sidebar_on_interaction()
 
     # Anchor for available times
     st.markdown('<a name="available-times"></a>', unsafe_allow_html=True)
@@ -710,5 +706,3 @@ with admin_tab:
                             del st.session_state['change_start_time']
                             del st.session_state['change_idx']
                             st.experimental_rerun()
-    else:
-        st.info("Enter password and click 'Sign in' to manage the shop.")
