@@ -381,24 +381,36 @@ st.markdown('''
     <style>
     /* Responsive table for admin */
     .mobile-table-wrapper { overflow-x: auto; }
-    table { width: 100% !important; min-width: 400px; }
-    th, td { font-size: 1.1em; padding: 0.6em 0.4em; }
-    /* Make buttons and inputs larger for touch */
-    .stButton > button, .stTextInput > div > input, .stSelectbox > div, .calendar-btn { min-height: 48px; font-size: 1.1em; }
-    .calendar-btn { width: 100%; border: none; background: #18191a; color: #fff; border-radius: 8px; font-weight: 500; transition: background 0.2s; }
+    table { width: 100% !important; min-width: 400px; border-spacing: 0 !important; border-collapse: collapse !important; }
+    th, td { font-size: 1em; padding: 0 !important; }
+    /* Make buttons and inputs larger for touch, but reduce padding for compactness */
+    .stButton > button, .stTextInput > div > input, .stSelectbox > div, .calendar-btn {
+      min-height: 32px; font-size: 0.96em; padding: 0 !important;
+    }
+    .calendar-btn {
+      width: 100%; border: none; background: #18191a; color: #fff; border-radius: 4px;
+      font-weight: 500; transition: background 0.2s; margin: 0 !important; padding: 0 !important;
+    }
     .calendar-btn:hover { background: #2d2d2d; cursor: pointer; }
     /* Make columns stack on small screens */
     @media (max-width: 600px) {
       .stColumns { flex-direction: column !important; }
       .stButton > button, .stTextInput > div > input, .stSelectbox > div { width: 100% !important; }
-      table { font-size: 1em; }
+      table { font-size: 0.95em; }
       .calendar-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .calendar-cell { min-width: 56px; margin: 2px; font-size: 1.1em; }
+      .calendar-cell { min-width: 24px; margin: 0 !important; font-size: 0.96em; padding: 0 !important; }
     }
     /* Calendar grid: always show border and spacing for day cells */
-    .calendar-row { display: flex; justify-content: flex-start; margin-bottom: 4px; }
-    .calendar-cell { border: 1px solid #333; border-radius: 8px; padding: 0.7em 0; text-align: center; background: #18191a; margin: 2px; min-width: 48px; max-width: 60px; font-weight: 500; transition: background 0.2s; }
+    .calendar-row { display: flex; justify-content: flex-start; margin-bottom: 0; }
+    .calendar-cell {
+      border: 1px solid #333; border-radius: 4px; padding: 0 !important; text-align: center;
+      background: #18191a; margin: 0 !important; min-width: 20px; max-width: 28px; font-weight: 500;
+      transition: background 0.2s;
+      font-size: 0.96em;
+    }
     .calendar-cell.disabled, .calendar-btn:disabled { opacity: 0.35; background: #222; color: #888; }
+    /* Available slots: compact buttons */
+    .stColumns > div > .stButton > button { margin: 0 !important; min-width: 32px; min-height: 20px; font-size: 0.96em; padding: 0 !important; }
     </style>
 ''', unsafe_allow_html=True)
 
