@@ -294,26 +294,24 @@ def render_month_grid(barber_id: str, service_id: str):
     today = date.today()
     any_enabled = False
     for week in month_cal:
-        st.markdown('<div class="calendar-row">', unsafe_allow_html=True)
+        cols = st.columns(7)
         for i, d in enumerate(week):
             is_current_month = (d.month == m)
             times = available_start_times(barber_id, service_id, d) if is_current_month else []
             label = f"{d.day}"
             disabled = (len(times) == 0) or (d < today) or (not is_current_month)
             cell_class = "calendar-cell disabled" if disabled else "calendar-cell"
-            if is_current_month:
-                if disabled:
-                    st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
+            with cols[i]:
+                if is_current_month:
+                    if disabled:
+                        st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
+                    else:
+                        any_enabled = True
+                        if st.button(label, key=f"day-{d.isoformat()}"):
+                            st.session_state['book_date'] = d
+                            st.session_state['scroll_to_times'] = True
                 else:
-                    any_enabled = True
-                    if st.button(label, key=f"day-{d.isoformat()}"):
-                        st.session_state['book_date'] = d
-                        st.session_state['scroll_to_times'] = True
-                    # Overlay for spacing/alignment
-                    st.markdown(f'<div class="{cell_class}" style="position:relative; top:-48px; height:0;"></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
     if not any_enabled:
         st.info("No available days for booking in this month. Please try another month.")
 
