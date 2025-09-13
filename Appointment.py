@@ -530,7 +530,7 @@ with cal_tab:
                         tm = times[idx]
                         time_str = tm.strftime('%H:%M')
                         btn_html += f'''<form action="" method="get" style="margin:0;padding:0;display:inline;">
-                        <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1.3em;padding:0.2em 1.1em;margin:0;min-width:60px;min-height:38px;cursor:pointer;">{time_str}</button></form>'''
+                        <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1em;padding:0.15em 0.8em;margin:0;min-width:48px;min-height:30px;cursor:pointer;">{time_str}</button></form>'''
                 btn_html += '</div>'
             btn_html += '</div>'
             st.markdown(btn_html, unsafe_allow_html=True)
