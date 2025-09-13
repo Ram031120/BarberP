@@ -292,22 +292,30 @@ def render_month_grid(barber_id: str, service_id: str):
         header[i].markdown(f"**{w}**")
 
     today = date.today()
+    any_enabled = False
     for week in month_cal:
-        cols = st.columns(7)
+        st.markdown('<div class="calendar-row">', unsafe_allow_html=True)
         for i, d in enumerate(week):
             is_current_month = (d.month == m)
-            if not is_current_month:
-                with cols[i]:
-                    st.caption(f"{d.day}")
-                continue
-            # compute availability count
-            times = available_start_times(barber_id, service_id, d)
+            times = available_start_times(barber_id, service_id, d) if is_current_month else []
             label = f"{d.day}"
-            disabled = (len(times) == 0) or (d < today)
-            with cols[i]:
-                if st.button(label, key=f"day-{d.isoformat()}", disabled=disabled):
-                    st.session_state['book_date'] = d
-                    st.session_state['scroll_to_times'] = True
+            disabled = (len(times) == 0) or (d < today) or (not is_current_month)
+            cell_class = "calendar-cell disabled" if disabled else "calendar-cell"
+            if is_current_month:
+                if disabled:
+                    st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
+                else:
+                    any_enabled = True
+                    if st.button(label, key=f"day-{d.isoformat()}"):
+                        st.session_state['book_date'] = d
+                        st.session_state['scroll_to_times'] = True
+                    # Overlay for spacing/alignment
+                    st.markdown(f'<div class="{cell_class}" style="position:relative; top:-48px; height:0;"></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    if not any_enabled:
+        st.info("No available days for booking in this month. Please try another month.")
 
 
 # -----------------------------
@@ -315,7 +323,7 @@ def render_month_grid(barber_id: str, service_id: str):
 # -----------------------------
 
 st.set_page_config(page_title="Barber Booking", page_icon="💈", layout="wide")
-# Mobile-friendly CSS
+# Enhanced mobile-friendly CSS for calendar grid
 st.markdown('''
     <style>
     /* Responsive table for admin */
@@ -329,7 +337,15 @@ st.markdown('''
       .stColumns { flex-direction: column !important; }
       .stButton > button, .stTextInput > div > input, .stSelectbox > div { width: 100% !important; }
       table { font-size: 1em; }
+      /* Calendar grid: horizontal scroll for 7 columns */
+      .calendar-row { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .calendar-cell { min-width: 56px; margin: 2px; font-size: 1.1em; }
     }
+    /* Calendar grid: always show border and spacing for day cells */
+    .calendar-row { display: flex; justify-content: flex-start; margin-bottom: 4px; }
+    .calendar-cell { border: 1px solid #333; border-radius: 8px; padding: 0.7em 0; text-align: center; background: #18191a; margin: 2px; min-width: 48px; max-width: 60px; font-weight: 500; transition: background 0.2s; }
+    .calendar-cell.disabled { opacity: 0.35; background: #222; color: #888; }
+    .calendar-cell:not(.disabled):hover { background: #2d2d2d; cursor: pointer; }
     </style>
 ''', unsafe_allow_html=True)
 
