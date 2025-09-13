@@ -282,36 +282,93 @@ def move_month(delta: int):
     st.session_state['cal_month'] = m
 
 
+def is_mobile():
+    import streamlit as st
+    ua = st.session_state.get('user_agent', None)
+    if ua is None:
+        try:
+            ua = st.experimental_get_query_params().get('ua', [None])[0]
+        except Exception:
+            ua = None
+    if ua is None:
+        try:
+            import os
+            ua = os.environ.get('HTTP_USER_AGENT', None)
+        except Exception:
+            ua = None
+    if ua:
+        ua = ua.lower()
+        return any(x in ua for x in ['iphone', 'android', 'mobile', 'ipad'])
+    return False
+
+
 def render_month_grid(barber_id: str, service_id: str):
     y, m = st.session_state['cal_year'], st.session_state['cal_month']
     month_cal = cal.Calendar(firstweekday=0).monthdatescalendar(y, m)
-
     st.markdown(f"### {month_label(y, m)}")
-    header = st.columns(7)
-    for i, w in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
-        header[i].markdown(f"**{w}**")
-
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     today = date.today()
     any_enabled = False
-    for week in month_cal:
-        cols = st.columns(7)
-        for i, d in enumerate(week):
-            is_current_month = (d.month == m)
-            times = available_start_times(barber_id, service_id, d) if is_current_month else []
-            label = f"{d.day}"
-            disabled = (len(times) == 0) or (d < today) or (not is_current_month)
-            cell_class = "calendar-cell disabled" if disabled else "calendar-cell"
-            with cols[i]:
-                if is_current_month:
-                    if disabled:
-                        st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
-                    else:
-                        any_enabled = True
-                        if st.button(label, key=f"day-{d.isoformat()}"):
-                            st.session_state['book_date'] = d
-                            st.session_state['scroll_to_times'] = True
+    if is_mobile():
+        # Render as HTML table for mobile
+        table_html = '<div class="calendar-wrapper"><table style="width:100%; min-width:420px;"><thead><tr>'
+        for w in days:
+            table_html += f'<th>{w}</th>'
+        table_html += '</tr></thead><tbody>'
+        for week in month_cal:
+            table_html += '<tr>'
+            for i, d in enumerate(week):
+                is_current_month = (d.month == m)
+                times = available_start_times(barber_id, service_id, d) if is_current_month else []
+                label = f"{d.day}"
+                disabled = (len(times) == 0) or (d < today) or (not is_current_month)
+                cell_class = "calendar-cell disabled" if disabled else "calendar-cell"
+                btn = ''
+                if is_current_month and not disabled:
+                    any_enabled = True
+                    btn = f'<button onclick="window.location.search=window.location.search+`&pick={d.isoformat()}`" class="calendar-btn">{label}</button>'
                 else:
-                    st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
+                    btn = f'<div class="{cell_class}">{label}</div>'
+                table_html += f'<td style="padding:0;">{btn}</td>'
+            table_html += '</tr>'
+        table_html += '</tbody></table></div>'
+        st.markdown(table_html, unsafe_allow_html=True)
+        # Handle pick from query param
+        import streamlit as st
+        pick = st.experimental_get_query_params().get('pick', [None])[0]
+        if pick:
+            try:
+                picked_date = datetime.strptime(pick, '%Y-%m-%d').date()
+                st.session_state['book_date'] = picked_date
+                st.session_state['scroll_to_times'] = True
+                # Remove pick param from URL
+                st.experimental_set_query_params()
+            except Exception:
+                pass
+    else:
+        # Desktop: use st.columns
+        header = st.columns(7)
+        for i, w in enumerate(days):
+            header[i].markdown(f"**{w}**")
+        for week in month_cal:
+            cols = st.columns(7)
+            for i, d in enumerate(week):
+                is_current_month = (d.month == m)
+                times = available_start_times(barber_id, service_id, d) if is_current_month else []
+                label = f"{d.day}"
+                disabled = (len(times) == 0) or (d < today) or (not is_current_month)
+                cell_class = "calendar-cell disabled" if disabled else "calendar-cell"
+                with cols[i]:
+                    if is_current_month:
+                        if disabled:
+                            st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
+                        else:
+                            any_enabled = True
+                            if st.button(label, key=f"day-{d.isoformat()}"):
+                                st.session_state['book_date'] = d
+                                st.session_state['scroll_to_times'] = True
+                    else:
+                        st.markdown(f'<div class="{cell_class}">{label}</div>', unsafe_allow_html=True)
     if not any_enabled:
         st.info("No available days for booking in this month. Please try another month.")
 
@@ -329,21 +386,21 @@ st.markdown('''
     table { width: 100% !important; min-width: 400px; }
     th, td { font-size: 1.1em; padding: 0.6em 0.4em; }
     /* Make buttons and inputs larger for touch */
-    .stButton > button, .stTextInput > div > input, .stSelectbox > div { min-height: 48px; font-size: 1.1em; }
+    .stButton > button, .stTextInput > div > input, .stSelectbox > div, .calendar-btn { min-height: 48px; font-size: 1.1em; }
+    .calendar-btn { width: 100%; border: none; background: #18191a; color: #fff; border-radius: 8px; font-weight: 500; transition: background 0.2s; }
+    .calendar-btn:hover { background: #2d2d2d; cursor: pointer; }
     /* Make columns stack on small screens */
     @media (max-width: 600px) {
       .stColumns { flex-direction: column !important; }
       .stButton > button, .stTextInput > div > input, .stSelectbox > div { width: 100% !important; }
       table { font-size: 1em; }
-      /* Calendar grid: horizontal scroll for 7 columns */
-      .calendar-row { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .calendar-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .calendar-cell { min-width: 56px; margin: 2px; font-size: 1.1em; }
     }
     /* Calendar grid: always show border and spacing for day cells */
     .calendar-row { display: flex; justify-content: flex-start; margin-bottom: 4px; }
     .calendar-cell { border: 1px solid #333; border-radius: 8px; padding: 0.7em 0; text-align: center; background: #18191a; margin: 2px; min-width: 48px; max-width: 60px; font-weight: 500; transition: background 0.2s; }
-    .calendar-cell.disabled { opacity: 0.35; background: #222; color: #888; }
-    .calendar-cell:not(.disabled):hover { background: #2d2d2d; cursor: pointer; }
+    .calendar-cell.disabled, .calendar-btn:disabled { opacity: 0.35; background: #222; color: #888; }
     </style>
 ''', unsafe_allow_html=True)
 
