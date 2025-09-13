@@ -620,74 +620,83 @@ with cal_tab:
             st.markdown('<script>document.getElementsByName("waitlist-details")[0].scrollIntoView({behavior: "smooth"});</script>', unsafe_allow_html=True)
             st.session_state['scroll_to_waitlist'] = False
 with admin_tab:
-        st.subheader("Owner / Admin")
-        # --- DISABLED ADMIN PASSWORD CHECK FOR TESTING ---
-        st.session_state["admin_ok"] = True
-        if st.session_state.get("admin_ok"):
-            st.success("Admin mode active")
-            # --- Admin Date Picker ---
-            if 'admin_cal_date' not in st.session_state:
-                st.session_state['admin_cal_date'] = date.today()
-            admin_date = st.date_input("Pick a date to view bookings", value=st.session_state['admin_cal_date'], key='admin_date_input')
-            st.session_state['admin_cal_date'] = admin_date
-            sel_date = admin_date
-            st.markdown(f"#### Bookings & Waitlist for {sel_date.strftime('%A, %d %B %Y')}")
-            # Fetch all appointments for all barbers on selected date
-            df = fetch_df(
-                '''SELECT a.id, a.appt_date, a.customer_name, a.customer_phone, a.start_time, a.end_time, s.name as service FROM appointments a JOIN services s ON s.id=a.service_id WHERE a.appt_date=? ORDER BY a.start_time''',
-                (sel_date.isoformat(),)
-            )
-            # Fetch waitlist for this date
-            waitlist_df = fetch_df(
-                '''SELECT id, name, phone, notes, requested_date, created_at FROM waitlist WHERE requested_date=? ORDER BY created_at''',
-                (sel_date.isoformat(),)
-            )
-            # Combine and display as table
-            table_html = '<div class="mobile-table-wrapper"><table style="width:100%"><thead><tr><th>Type</th><th>Name</th><th>Phone</th><th>Service/Notes</th><th>Time</th><th>Action</th></tr></thead><tbody>'
-            # Appointments
-            for idx, row in df.iterrows():
-                phone_link = f'{html.escape(str(row["customer_phone"]))} <a href="tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}" target="_blank">📞</a>'
-                time_str = f"{row['start_time']} - {row['end_time']}"
-                table_html += f'<tr><td>Booking</td><td><b>{html.escape(str(row["customer_name"]))}</b></td><td>{phone_link}</td><td>{html.escape(str(row["service"]))}</td><td>{time_str}</td><td><form action="" method="post"><button name="change_appt" value="{row['id']}" style="padding:2px 8px;">Change</button></form></td></tr>'
-            # Waitlist
-            for idx, row in waitlist_df.iterrows():
-                phone_link = f'{html.escape(str(row["phone"]))} <a href="tel:{''.join([c for c in str(row['phone']) if c.isdigit() or c=='+'])}" target="_blank">📞</a>'
-                table_html += f'<tr style="background:#222;"><td>Waitlist</td><td><b>{html.escape(str(row["name"]))}</b></td><td>{phone_link}</td><td>{html.escape(str(row["notes"]))}</td><td>-</td><td><form action="" method="post"><button name="change_waitlist" value="{row['id']}" style="padding:2px 8px;">Change</button></form></td></tr>'
-            table_html += '</tbody></table></div>'
-            st.write('<style>td {vertical-align: middle !important;}</style>', unsafe_allow_html=True)
-            st.write(table_html, unsafe_allow_html=True)
-            # Handle change actions
-            change_appt_id = st.query_params.get('change_appt', None)
-            change_waitlist_id = st.query_params.get('change_waitlist', None)
-            if change_appt_id:
-                appt_row = fetch_df("SELECT * FROM appointments WHERE id=?", (change_appt_id,)).iloc[0]
-                # Allow changing date and time
-                new_date = st.date_input("New date", value=datetime.strptime(appt_row['appt_date'], '%Y-%m-%d').date(), key='change_appt_date')
-                # List available slots for this barber/service/date
-                slots = available_start_times(appt_row['barber_id'], appt_row['service_id'], new_date)
-                slot_labels = [s.strftime('%H:%M') for s in slots]
-                new_time = st.selectbox("New time", slot_labels, key='change_appt_time')
-                if st.button("Update Booking", key='update_appt_btn'):
-                    # Update appointment in DB
-                    services = get_services()
-                    duration = int(services.loc[services['id'] == appt_row['service_id'], 'duration_min'].iloc[0])
-                    new_end = (datetime.combine(new_date, datetime.strptime(new_time, '%H:%M').time()) + timedelta(minutes=duration)).time()
-                    conn = get_conn()
-                    cur = conn.cursor()
-                    cur.execute("UPDATE appointments SET appt_date=?, start_time=?, end_time=? WHERE id=?", (new_date.isoformat(), new_time, new_end.strftime('%H:%M'), change_appt_id))
-                    conn.commit()
-                    conn.close()
-                    st.success("Booking updated!")
-                    st.rerun()
-            if change_waitlist_id:
-                wait_row = fetch_df("SELECT * FROM waitlist WHERE id=?", (change_waitlist_id,)).iloc[0]
-                new_date = st.date_input("New requested date", value=datetime.strptime(wait_row['requested_date'], '%Y-%m-%d').date(), key='change_waitlist_date')
-                new_notes = st.text_area("Notes (optional, can include time)", value=wait_row['notes'], key='change_waitlist_notes')
-                if st.button("Update Waitlist Entry", key='update_waitlist_btn'):
-                    conn = get_conn()
-                    cur = conn.cursor()
-                    cur.execute("UPDATE waitlist SET requested_date=?, notes=? WHERE id=?", (new_date.isoformat(), new_notes, change_waitlist_id))
-                    conn.commit()
-                    conn.close()
-                    st.success("Waitlist entry updated!")
-                    st.rerun()
+    st.subheader("Owner / Admin")
+    # --- DISABLED ADMIN PASSWORD CHECK FOR TESTING ---
+    st.session_state["admin_ok"] = True
+    if st.session_state.get("admin_ok"):
+        st.success("Admin mode active")
+        # --- Admin Date Picker ---
+        if 'admin_cal_date' not in st.session_state:
+            st.session_state['admin_cal_date'] = date.today()
+        admin_date = st.date_input("Pick a date to view bookings", value=st.session_state['admin_cal_date'], key='admin_date_input')
+        st.session_state['admin_cal_date'] = admin_date
+        sel_date = admin_date
+        st.markdown(f"#### Bookings & Waitlist for {sel_date.strftime('%A, %d %B %Y')}")
+        # Fetch all appointments for all barbers on selected date
+        df = fetch_df(
+            '''SELECT a.id, a.appt_date, a.customer_name, a.customer_phone, a.start_time, a.end_time, s.name as service FROM appointments a JOIN services s ON s.id=a.service_id WHERE a.appt_date=? ORDER BY a.start_time''',
+            (sel_date.isoformat(),)
+        )
+        # Fetch waitlist for this date
+        waitlist_df = fetch_df(
+            '''SELECT id, name, phone, notes, requested_date, created_at FROM waitlist WHERE requested_date=? ORDER BY created_at''',
+            (sel_date.isoformat(),)
+        )
+        # Render as Streamlit table with action buttons
+        st.write('### Bookings')
+        for idx, row in df.iterrows():
+            cols = st.columns([2, 2, 2, 2, 2, 1])
+            cols[0].markdown(f"**{html.escape(str(row['customer_name']))}**")
+            phone_link = f'{html.escape(str(row["customer_phone"]))} <a href="tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}" target="_blank">📞</a>'
+            cols[1].markdown(phone_link, unsafe_allow_html=True)
+            cols[2].markdown(html.escape(str(row['service'])), unsafe_allow_html=True)
+            time_str = f"{row['start_time']} - {row['end_time']}"
+            cols[3].markdown(time_str)
+            # Action button
+            if cols[5].button("Change", key=f"change_appt_{row['id']}"):
+                st.session_state['change_appt_id'] = row['id']
+        st.write('### Waitlist')
+        for idx, row in waitlist_df.iterrows():
+            cols = st.columns([2, 2, 2, 2, 2, 1])
+            cols[0].markdown(f"**{html.escape(str(row['name']))}**")
+            phone_link = f'{html.escape(str(row["phone"]))} <a href="tel:{''.join([c for c in str(row['phone']) if c.isdigit() or c=='+'])}" target="_blank">📞</a>'
+            cols[1].markdown(phone_link, unsafe_allow_html=True)
+            cols[2].markdown(html.escape(str(row['notes'])), unsafe_allow_html=True)
+            cols[3].markdown("-")
+            # Action button
+            if cols[5].button("Change", key=f"change_waitlist_{row['id']}"):
+                st.session_state['change_waitlist_id'] = row['id']
+        # Handle change actions
+        change_appt_id = st.session_state.get('change_appt_id', None)
+        change_waitlist_id = st.session_state.get('change_waitlist_id', None)
+        if change_appt_id:
+            appt_row = fetch_df("SELECT * FROM appointments WHERE id=?", (change_appt_id,)).iloc[0]
+            new_date = st.date_input("New date", value=datetime.strptime(appt_row['appt_date'], '%Y-%m-%d').date(), key='change_appt_date')
+            slots = available_start_times(appt_row['barber_id'], appt_row['service_id'], new_date)
+            slot_labels = [s.strftime('%H:%M') for s in slots]
+            new_time = st.selectbox("New time", slot_labels, key='change_appt_time')
+            if st.button("Update Booking", key='update_appt_btn'):
+                services = get_services()
+                duration = int(services.loc[services['id'] == appt_row['service_id'], 'duration_min'].iloc[0])
+                new_end = (datetime.combine(new_date, datetime.strptime(new_time, '%H:%M').time()) + timedelta(minutes=duration)).time()
+                conn = get_conn()
+                cur = conn.cursor()
+                cur.execute("UPDATE appointments SET appt_date=?, start_time=?, end_time=? WHERE id=?", (new_date.isoformat(), new_time, new_end.strftime('%H:%M'), change_appt_id))
+                conn.commit()
+                conn.close()
+                st.success("Booking updated!")
+                st.session_state['change_appt_id'] = None
+                st.rerun()
+        if change_waitlist_id:
+            wait_row = fetch_df("SELECT * FROM waitlist WHERE id=?", (change_waitlist_id,)).iloc[0]
+            new_date = st.date_input("New requested date", value=datetime.strptime(wait_row['requested_date'], '%Y-%m-%d').date(), key='change_waitlist_date')
+            new_notes = st.text_area("Notes (optional, can include time)", value=wait_row['notes'], key='change_waitlist_notes')
+            if st.button("Update Waitlist Entry", key='update_waitlist_btn'):
+                conn = get_conn()
+                cur = conn.cursor()
+                cur.execute("UPDATE waitlist SET requested_date=?, notes=? WHERE id=?", (new_date.isoformat(), new_notes, change_waitlist_id))
+                conn.commit()
+                conn.close()
+                st.success("Waitlist entry updated!")
+                st.session_state['change_waitlist_id'] = None
+                st.rerun()
