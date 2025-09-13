@@ -518,14 +518,28 @@ with cal_tab:
                         conn.close()
                         st.success("You have been added to the waitlist! We will contact you if a slot opens up.")
         else:
-            # Render all time slot buttons in a single row to remove vertical spacing
-            tcol = st.columns(len(times))
-            chosen_time = None
-            for i, tm in enumerate(times):
-                if tcol[i].button(tm.strftime('%H:%M'), key=f"tm-{tm.strftime('%H%M')}"):
-                    chosen_time = tm
-                    st.session_state['chosen_time'] = tm.strftime('%H:%M')
-                    st.session_state['scroll_to_quick_book'] = True
+            # Render time slot buttons in a compact custom HTML grid (2 columns per row)
+            import math
+            slots_per_row = 2
+            btn_html = '<div style="display:flex;flex-direction:column;gap:2px;">'
+            for i in range(0, len(times), slots_per_row):
+                btn_html += '<div style="display:flex;gap:6px;">'
+                for j in range(slots_per_row):
+                    idx = i + j
+                    if idx < len(times):
+                        tm = times[idx]
+                        time_str = tm.strftime('%H:%M')
+                        btn_html += f'''<form action="" method="get" style="margin:0;padding:0;display:inline;">
+                        <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1.3em;padding:0.2em 1.1em;margin:0;min-width:60px;min-height:38px;cursor:pointer;">{time_str}</button></form>'''
+                btn_html += '</div>'
+            btn_html += '</div>'
+            st.markdown(btn_html, unsafe_allow_html=True)
+            # Handle button click via query param
+            pick_time = st.query_params.get('pick_time', None)
+            if pick_time:
+                st.session_state['chosen_time'] = pick_time
+                st.session_state['scroll_to_quick_book'] = True
+                st.query_params.clear()
             st.caption("Tip: pick a time, then fill your details below.")
 
         # Anchor for quick book
