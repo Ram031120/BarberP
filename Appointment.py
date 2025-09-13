@@ -450,20 +450,27 @@ with st.sidebar:
 
 with cal_tab:
     st.subheader("Pick a day from the calendar")
+    # Option to use Streamlit's default date picker
+    use_default_picker = st.checkbox("Use Streamlit's default date picker", value=False)
     # Use default barber/service (first in list) for calendar tab
     cal_barber_id = barbers_df.iloc[0]['id']
     cal_service_id = services_df.iloc[0]['id']
-    c1, c2, c3 = st.columns([1,2,1])
-    with c1:
-        if st.button("◀ Prev", use_container_width=True):
-            move_month(-1)
-    with c2:
-        st.info(month_label(st.session_state['cal_year'], st.session_state['cal_month']), icon="📅")
-    with c3:
-        if st.button("Next ▶", use_container_width=True):
-            move_month(1)
-
-    render_month_grid(cal_barber_id, cal_service_id)
+    if use_default_picker:
+        picked_date = st.date_input("Pick a date", value=st.session_state['book_date'], min_value=date.today())
+        if picked_date != st.session_state['book_date']:
+            st.session_state['book_date'] = picked_date
+            st.session_state['scroll_to_times'] = True
+    else:
+        c1, c2, c3 = st.columns([1,2,1])
+        with c1:
+            if st.button("◀ Prev", use_container_width=True):
+                move_month(-1)
+        with c2:
+            st.info(month_label(st.session_state['cal_year'], st.session_state['cal_month']), icon="📅")
+        with c3:
+            if st.button("Next ▶", use_container_width=True):
+                move_month(1)
+        render_month_grid(cal_barber_id, cal_service_id)
 
     # Anchor for available times
     st.markdown('<a name="available-times"></a>', unsafe_allow_html=True)
