@@ -541,6 +541,16 @@ with cal_tab:
                 st.session_state['scroll_to_quick_book'] = True
                 st.query_params.clear()
             st.caption("Tip: pick a time, then fill your details below.")
+            # Show chosen time below the tip if selected, with a clear button
+            chosen_time = st.session_state.get('chosen_time', None)
+            if chosen_time:
+                col_time, col_clear = st.columns([3,1])
+                with col_time:
+                    st.markdown(f'<div style="margin-bottom:0.5em;"><b>Time chosen:</b> <span style="color:#2d8cff;">{chosen_time}</span></div>', unsafe_allow_html=True)
+                with col_clear:
+                    if st.button("Clear", key="clear_chosen_time"):
+                        st.session_state['chosen_time'] = None
+                        st.rerun()
 
         # Anchor for quick book
         st.markdown('<a name="quick-book"></a>', unsafe_allow_html=True)
@@ -550,14 +560,16 @@ with cal_tab:
 
         # Quick booking form right in the calendar tab
         # Only show the waitlist form if not already inside a form
-        show_waitlist = True
         with st.form("quick_book_form"):
             st.write("### Quick Book")
             customer_name = st.text_input("Your name", key='cal_name')
             customer_phone = st.text_input("Phone", placeholder="e.g., +2305xxxxxx", key='cal_phone')
             notes = st.text_area("Notes (optional)", key='cal_notes')
             default_time_str = st.session_state.get('chosen_time', None)
+            if default_time_str:
+                st.markdown(f'<div style="margin-bottom:0.5em;"><b>Time booked:</b> <span style="color:#2d8cff;">{default_time_str}</span></div>', unsafe_allow_html=True)
             submit = st.form_submit_button("Confirm Booking")
+            join_waitlist = st.form_submit_button("JOIN WAITLIST  →", key='waitlist_submit2')
             if submit:
                 if not default_time_str:
                     st.error("Please choose a time above first.")
@@ -583,26 +595,27 @@ with cal_tab:
                         st.error(str(e))
                     except Exception as ex:
                         st.error(f"Something went wrong: {ex}")
-            # Waitlist option if user can't find a suitable slot
-            if show_waitlist:
-                st.markdown('<div style="text-align:center; margin-top:2em;">'
-                            '<p style="font-size:1.2em;">Can\'t find a suitable time for you?</p>'
-                            '</div>', unsafe_allow_html=True)
-                w_name2 = st.text_input("Your name", key='waitlist_name2')
-                w_phone2 = st.text_input("Phone", placeholder="e.g., +2305xxxxxx", key='waitlist_phone2')
-                w_notes2 = st.text_area("Preferred time, notes (optional)", key='waitlist_notes2')
-                submit_wait2 = st.form_submit_button("JOIN WAITLIST  →", key='waitlist_submit2')
-                if submit_wait2:
-                    if not w_name2 or not w_phone2:
-                        st.error("Please enter your name and phone number.")
-                    else:
-                        conn = get_conn()
-                        cur = conn.cursor()
-                        cur.execute('''INSERT INTO waitlist (id, name, phone, notes, requested_date, created_at) VALUES (?, ?, ?, ?, ?, ?)''',
-                            (str(uuid.uuid4()), w_name2.strip(), ''.join([c for c in w_phone2 if c.isdigit() or c=='+']), w_notes2.strip(), book_date.isoformat(), datetime.utcnow().isoformat()))
-                        conn.commit()
-                        conn.close()
-                        st.success("You have been added to the waitlist! We will contact you if a slot opens up.")
+            if join_waitlist:
+                if not default_time_str:
+                    st.error("Please choose a time above first.")
+                elif not customer_name or not customer_phone:
+                    st.error("Please enter your name and phone number.")
+                else:
+                    conn = get_conn()
+                    cur = conn.cursor()
+                    waitlist_note = notes
+                    if default_time_str:
+                        waitlist_note = f"Requested time: {default_time_str}. " + (notes or "")
+                    cur.execute('''INSERT INTO waitlist (id, name, phone, notes, requested_date, created_at) VALUES (?, ?, ?, ?, ?, ?)''',
+                        (str(uuid.uuid4()), customer_name.strip(), ''.join([c for c in customer_phone if c.isdigit() or c=='+']), waitlist_note.strip(), book_date.isoformat(), datetime.utcnow().isoformat()))
+                    conn.commit()
+                    conn.close()
+                    st.success("You have been added to the waitlist! We will contact you if a slot opens up.")
+        # Anchor for waitlist form
+        st.markdown('<a name="waitlist-details"></a>', unsafe_allow_html=True)
+        if st.session_state.get('scroll_to_waitlist', False):
+            st.markdown('<script>document.getElementsByName("waitlist-details")[0].scrollIntoView({behavior: "smooth"});</script>', unsafe_allow_html=True)
+            st.session_state['scroll_to_waitlist'] = False
 with admin_tab:
     st.subheader("Owner / Admin")
     def load_secrets_admin_password() -> str:
