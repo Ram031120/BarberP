@@ -283,11 +283,10 @@ def move_month(delta: int):
 
 
 def is_mobile():
-    import streamlit as st
     ua = st.session_state.get('user_agent', None)
     if ua is None:
         try:
-            ua = st.experimental_get_query_params().get('ua', [None])[0]
+            ua = st.query_params.get('ua', None)
         except Exception:
             ua = None
     if ua is None:
@@ -334,15 +333,14 @@ def render_month_grid(barber_id: str, service_id: str):
         table_html += '</tbody></table></div>'
         st.markdown(table_html, unsafe_allow_html=True)
         # Handle pick from query param
-        import streamlit as st
-        pick = st.experimental_get_query_params().get('pick', [None])[0]
+        pick = st.query_params.get('pick', None)
         if pick:
             try:
                 picked_date = datetime.strptime(pick, '%Y-%m-%d').date()
                 st.session_state['book_date'] = picked_date
                 st.session_state['scroll_to_times'] = True
                 # Remove pick param from URL
-                st.experimental_set_query_params()
+                st.query_params.clear()
             except Exception:
                 pass
     else:
