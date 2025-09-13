@@ -410,7 +410,11 @@ st.markdown('''
     }
     .calendar-cell.disabled, .calendar-btn:disabled { opacity: 0.35; background: #222; color: #888; }
     /* Available slots: compact buttons */
+    .stColumns > div > .stButton { margin: 0 !important; padding: 0 !important; }
     .stColumns > div > .stButton > button { margin: 0 !important; min-width: 32px; min-height: 20px; font-size: 0.96em; padding: 0 !important; }
+    /* Reduce space between columns for time slots */
+    .stColumns { gap: 2px !important; margin: 0 !important; }
+    .stButton { margin: 0 !important; padding: 0 !important; }
     </style>
 ''', unsafe_allow_html=True)
 
@@ -424,10 +428,17 @@ st.markdown('<div style="margin-bottom:0.5em;"><em>“Book it. Own it. Style it.
 # Pricing sidebar toggle state
 if 'show_pricing_sidebar' not in st.session_state:
     st.session_state['show_pricing_sidebar'] = False
+if 'pricing_btn_counter' not in st.session_state:
+    st.session_state['pricing_btn_counter'] = 0
 
-# Show Pricing button in main area (always visible)
-if st.button('Show Pricing', key='show_pricing_btn') or st.session_state.get('show_pricing_sidebar', False):
-    st.session_state['show_pricing_sidebar'] = True
+# --- Place Show Pricing button at the very top left ---
+top_cols = st.columns([1, 8])
+with top_cols[0]:
+    show_pricing_clicked = st.button('Show Pricing', key=f'show_pricing_btn_top_{st.session_state["pricing_btn_counter"]}')
+    if show_pricing_clicked:
+        st.session_state['show_pricing_sidebar'] = True
+
+if st.session_state.get('show_pricing_sidebar', False):
     with st.sidebar:
         st.markdown("""
         ### ✂️🪒 BARBER SHOP NEW PRICE LIST
@@ -446,6 +457,8 @@ if st.button('Show Pricing', key='show_pricing_btn') or st.session_state.get('sh
         """)
         if st.button('Close', key='close_pricing_sidebar'):
             st.session_state['show_pricing_sidebar'] = False
+            st.session_state['pricing_btn_counter'] += 1
+
 # Hide sidebar if user interacts with main area (simulate click outside)
 def hide_sidebar_on_interaction():
     if st.session_state.get('show_pricing_sidebar', False):
@@ -505,10 +518,11 @@ with cal_tab:
                         conn.close()
                         st.success("You have been added to the waitlist! We will contact you if a slot opens up.")
         else:
-            tcol = st.columns(4)
+            # Render all time slot buttons in a single row to remove vertical spacing
+            tcol = st.columns(len(times))
             chosen_time = None
             for i, tm in enumerate(times):
-                if tcol[i % 4].button(tm.strftime('%H:%M'), key=f"tm-{tm.strftime('%H%M')}"):
+                if tcol[i].button(tm.strftime('%H:%M'), key=f"tm-{tm.strftime('%H%M')}"):
                     chosen_time = tm
                     st.session_state['chosen_time'] = tm.strftime('%H:%M')
                     st.session_state['scroll_to_quick_book'] = True
