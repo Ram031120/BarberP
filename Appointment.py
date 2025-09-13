@@ -519,20 +519,13 @@ with cal_tab:
                         conn.close()
                         st.success("You have been added to the waitlist! We will contact you if a slot opens up.")
         else:
-            # Render time slot buttons in a compact custom HTML grid (2 columns per row)
-            import math
-            slots_per_row = 2
-            btn_html = '<div style="display:flex;flex-direction:column;gap:2px;">'
-            for i in range(0, len(times), slots_per_row):
-                btn_html += '<div style="display:flex;gap:6px;">'
-                for j in range(slots_per_row):
-                    idx = i + j
-                    if idx < len(times):
-                        tm = times[idx]
-                        time_str = tm.strftime('%H:%M')
-                        btn_html += f'''<form action="" method="get" style="margin:0;padding:0;display:inline;">
-                        <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1em;padding:0.15em 0.8em;margin:0;min-width:48px;min-height:30px;cursor:pointer;">{time_str}</button></form>'''
-                btn_html += '</div>'
+            # Render time slot buttons in a compact custom HTML grid (horizontally stacked, wrapping)
+            slots_per_row = 2  # You can adjust this for more/less columns
+            btn_html = '<div style="display:flex;flex-wrap:wrap;gap:16px 24px;">'
+            for i, tm in enumerate(times):
+                time_str = tm.strftime('%H:%M')
+                btn_html += f'''<form action="" method="get" style="margin:0 0 12px 0;padding:0;display:inline;">
+                <button name="pick_time" value="{time_str}" style="background:#18191a;color:#fff;border:1.5px solid #888;border-radius:10px;font-size:1em;padding:0.15em 1.5em;margin:0;min-width:90px;min-height:48px;cursor:pointer;display:inline-block;">{time_str}</button></form>'''
             btn_html += '</div>'
             st.markdown(btn_html, unsafe_allow_html=True)
             # Handle button click via query param
@@ -645,26 +638,39 @@ with admin_tab:
         # Render as Streamlit table with action buttons
         st.write('### Bookings')
         for idx, row in df.iterrows():
-            cols = st.columns([2, 2, 2, 2, 2, 1])
-            cols[0].markdown(f"**{html.escape(str(row['customer_name']))}**")
-            phone_link = f'{html.escape(str(row["customer_phone"]))} <a href="tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}" target="_blank">📞</a>'
-            cols[1].markdown(phone_link, unsafe_allow_html=True)
-            cols[2].markdown(html.escape(str(row['service'])), unsafe_allow_html=True)
-            time_str = f"{row['start_time']} - {row['end_time']}"
-            cols[3].markdown(time_str)
-            # Action button
-            if cols[5].button("Change", key=f"change_appt_{row['id']}"):
+            st.markdown(
+                f"""
+                <div style='display: flex; flex-direction: row; align-items: center; gap: 1.5em; border-bottom: 1px solid #333; padding: 0.3em 0;'>
+                    <span style='min-width:110px;'><b>{html.escape(str(row['customer_name']))}</b></span>
+                    <span style='min-width:120px;'>{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a></span>
+                    <span style='min-width:120px;'>{html.escape(str(row['service']))}</span>
+                    <span style='min-width:90px;'>{row['start_time']} - {row['end_time']}</span>
+                    <span style='min-width:80px;'>
+                        {st.button('Change', key=f'change_appt_{row["id"]}')}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            if st.session_state.get(f'change_appt_{row["id"]}', False):
                 st.session_state['change_appt_id'] = row['id']
         st.write('### Waitlist')
         for idx, row in waitlist_df.iterrows():
-            cols = st.columns([2, 2, 2, 2, 2, 1])
-            cols[0].markdown(f"**{html.escape(str(row['name']))}**")
-            phone_link = f'{html.escape(str(row["phone"]))} <a href="tel:{''.join([c for c in str(row['phone']) if c.isdigit() or c=='+'])}" target="_blank">📞</a>'
-            cols[1].markdown(phone_link, unsafe_allow_html=True)
-            cols[2].markdown(html.escape(str(row['notes'])), unsafe_allow_html=True)
-            cols[3].markdown("-")
-            # Action button
-            if cols[5].button("Change", key=f"change_waitlist_{row['id']}"):
+            st.markdown(
+                f"""
+                <div style='display: flex; flex-direction: row; align-items: center; gap: 1.5em; border-bottom: 1px solid #333; padding: 0.3em 0; background: #222;'>
+                    <span style='min-width:110px;'><b>{html.escape(str(row['name']))}</b></span>
+                    <span style='min-width:120px;'>{html.escape(str(row['phone']))} <a href='tel:{''.join([c for c in str(row['phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a></span>
+                    <span style='min-width:120px;'>{html.escape(str(row['notes']))}</span>
+                    <span style='min-width:90px;'>-</span>
+                    <span style='min-width:80px;'>
+                        {st.button('Change', key=f'change_waitlist_{row["id"]}')}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            if st.session_state.get(f'change_waitlist_{row["id"]}', False):
                 st.session_state['change_waitlist_id'] = row['id']
         # Handle change actions
         change_appt_id = st.session_state.get('change_appt_id', None)
