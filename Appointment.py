@@ -422,8 +422,17 @@ st.markdown('''
 init_db()
 ensure_session_defaults()
 
-# Custom header with emoji and new title
-st.markdown('<div style="display:flex;align-items:center;"><span style="font-size:2.5em;">✂️🪒</span><span style="background:#465a77;padding:0.2em 0.7em;margin-left:0.5em;border-radius:4px;color:#fff;font-size:1.15em;font-weight:bold;">The Groom Room</span><span style="font-size:0.85em;color:#bbb;margin-left:0.7em;">by Pravesh</span></div>', unsafe_allow_html=True)
+# Custom header with emoji and new title as a table for alignment
+st.markdown('''
+<table style="border:none;background:none;width:auto;">
+  <tr style="border:none;background:none;">
+    <td style="border:none;background:none;vertical-align:middle;"><span style="font-size:2.5em;">✂️🪒</span></td>
+    <td style="border:none;background:none;vertical-align:middle;">
+      <span style="background:#465a77;padding:0.2em 0.7em;margin-left:0.5em;border-radius:4px;color:#fff;font-size:1.15em;font-weight:bold;">The Groom Room</span>
+      <span style="font-size:0.85em;color:#bbb;margin-left:0.7em;">by Pravesh</span>
+    </td>
+  </tr>
+</table>''', unsafe_allow_html=True)
 st.markdown('<div style="margin-bottom:0.5em;"><em>“Book it. Own it. Style it.”</em></div>', unsafe_allow_html=True)
 
 # Pricing sidebar toggle state
