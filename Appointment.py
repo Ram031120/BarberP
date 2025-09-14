@@ -647,26 +647,14 @@ with cal_tab:
             # Render as Streamlit table with action buttons
             st.write('### Bookings')
             for idx, row in df.iterrows():
-                st.markdown(
-                    f"""
-                    <div style='display: flex; flex-direction: row; align-items: center; gap: 1.5em; border-bottom: 1px solid #333; padding: 0.3em 0;'>
-                        <span style='min-width:110px;'><b>{html.escape(str(row['customer_name']))}</b></span>
-                        <span style='min-width:120px;'>{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a></span>
-                        <span style='min-width:120px;'>{html.escape(str(row['service']))}</span>
-                        <span style='min-width:90px;'>{row['start_time']} - {row['end_time']}</span>
-                        <span style='min-width:80px;'>
-                            {st.button('Change', key=f'change_appt_{row["id"]}')}
-                        </span>
-                        <span style='min-width:80px;'>
-                            {st.button('Delete', key=f'delete_appt_{row["id"]}')}
-                        </span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-                if st.session_state.get(f'change_appt_{row["id"]}', False):
+                cols = st.columns([2, 2, 2, 2, 1, 1])
+                cols[0].markdown(f"<b>{html.escape(str(row['customer_name']))}</b>", unsafe_allow_html=True)
+                cols[1].markdown(f"{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a>", unsafe_allow_html=True)
+                cols[2].markdown(f"{html.escape(str(row['service']))}", unsafe_allow_html=True)
+                cols[3].markdown(f"{row['start_time']} - {row['end_time']}", unsafe_allow_html=True)
+                if cols[4].button('Change', key=f'change_appt_{row["id"]}'):
                     st.session_state['change_appt_id'] = row['id']
-                if st.session_state.get(f'delete_appt_{row["id"]}', False):
+                if cols[5].button('Delete', key=f'delete_appt_{row["id"]}'):
                     delete_appointment(row['id'])
                     st.success('Booking deleted!')
                     st.rerun()
