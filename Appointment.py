@@ -584,7 +584,6 @@ with cal_tab:
             if default_time_str:
                 st.markdown(f'<div style="margin-bottom:0.5em;"><b>Time booked:</b> <span style="color:#2d8cff;">{default_time_str}</span></div>', unsafe_allow_html=True)
             submit = st.form_submit_button("Confirm Booking")
-            # Disable join_waitlist if a time is chosen
             join_waitlist_disabled = st.session_state.get('chosen_time', None) is not None
             join_waitlist = st.form_submit_button("JOIN WAITLIST  →", key='waitlist_submit2', disabled=join_waitlist_disabled)
             if submit:
@@ -612,10 +611,9 @@ with cal_tab:
                         st.error(str(e))
                     except Exception as ex:
                         st.error(f"Something went wrong: {ex}")
-            if join_waitlist:
-                if not default_time_str:
-                    st.error("Please choose a time above first.")
-                elif not customer_name or not customer_phone:
+            # Only process waitlist if button is enabled and no time is chosen
+            if join_waitlist and not join_waitlist_disabled:
+                if not customer_name or not customer_phone:
                     st.error("Please enter your name and phone number.")
                 else:
                     conn = get_conn()
@@ -668,6 +666,19 @@ with cal_tab:
                     st.success('Booking deleted!')
                     st.rerun()
             st.write('### Waitlist')
+            # Add a row to call Pravesh directly
+            st.markdown(
+                f"""
+                <div style='display: flex; flex-direction: row; align-items: center; gap: 1.5em; border-bottom: 1px solid #333; padding: 0.3em 0; background: #23272e;'>
+                    <span style='min-width:110px;'><b>Call Pravesh</b></span>
+                    <span style='min-width:120px;'>59075114 <a href='tel:59075114' target='_blank'>📞</a></span>
+                    <span style='min-width:120px; color:#bbb;'>Owner/Manager</span>
+                    <span style='min-width:90px;'>-</span>
+                    <span style='min-width:80px;'></span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             for idx, row in waitlist_df.iterrows():
                 st.markdown(
                     f"""
