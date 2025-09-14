@@ -647,14 +647,14 @@ with cal_tab:
             # Render as Streamlit table with action buttons
             st.write('### Bookings')
             for idx, row in df.iterrows():
-                cols = st.columns([2, 2, 2, 2, 1, 1])
+                cols = st.columns([2, 2, 2, 1, 1])
+                phone_display = f"{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank' style='text-decoration:none;'>📞</a>"
                 cols[0].markdown(f"<b>{html.escape(str(row['customer_name']))}</b>", unsafe_allow_html=True)
-                cols[1].markdown(f"{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a>", unsafe_allow_html=True)
-                cols[2].markdown(f"{html.escape(str(row['service']))}", unsafe_allow_html=True)
-                cols[3].markdown(f"{row['start_time']} - {row['end_time']}", unsafe_allow_html=True)
-                if cols[4].button('Change', key=f'change_appt_{row["id"]}'):
+                cols[1].markdown(phone_display, unsafe_allow_html=True)
+                cols[2].markdown(f"{row['start_time']} - {row['end_time']}", unsafe_allow_html=True)
+                if cols[3].button('Change', key=f'change_appt_{row["id"]}'):
                     st.session_state['change_appt_id'] = row['id']
-                if cols[5].button('Delete', key=f'delete_appt_{row["id"]}'):
+                if cols[4].button('Delete', key=f'delete_appt_{row["id"]}'):
                     delete_appointment(row['id'])
                     st.success('Booking deleted!')
                     st.rerun()
