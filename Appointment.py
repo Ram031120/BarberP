@@ -494,21 +494,29 @@ with top_cols[0]:
 
 # Move pricing list to main page, below header, and show/expand when button is clicked
 if st.session_state.get('show_pricing_sidebar', False):
-    st.markdown("""
-    ### ✂️🪒 BARBER SHOP NEW PRICE LIST
-    **Haircuts**
-    1. Men's Haircut .................... Rs 100  
-    2. Kids' Haircut (under 15) ......... Rs 75  
-    3. Seniors' Cut ..................... Rs 75  
-    **Beard & color**
-    1. Beard Trim ....................... Rs 50  
-    2. Shave Normal ..................... Rs 25  
-    3. Hair color / Dry ................. Rs 25  
-    **Combo Deals**
-    1. Haircut + hair color/Dry ......... Rs 125  
-    2. Haircut + Beard Trim ............. Rs 150  
-    3. Haircut + Shave + hair color/Dry  Rs 175  
-    """)
+    st.markdown('''
+    <div style="background:#f7f7fa;border-radius:10px;padding:1.2em 1.5em 1.2em 1.5em;margin-bottom:1em;box-shadow:0 2px 8px #e0e0e0;max-width:480px;">
+      <h3 style="margin-top:0;margin-bottom:0.7em;font-size:1.3em;color:#465a77;">✂️🪒 <span style="color:#222;">Barber Shop Price List</span></h3>
+      <div style="margin-bottom:0.7em;"><b style="color:#465a77;">Haircuts</b></div>
+      <ul style="list-style:none;padding-left:0;margin-bottom:0.7em;">
+        <li><span style="font-size:1.2em;">👨</span> <span style="color:#2d8cff;">Men's Haircut</span> <span style="float:right;color:#27ae60;font-weight:bold;">Rs 100</span></li>
+        <li><span style="font-size:1.2em;">🧒</span> <span style="color:#e67e22;">Kids' Haircut (under 15)</span> <span style="float:right;color:#27ae60;font-weight:bold;">Rs 75</span></li>
+        <li><span style="font-size:1.2em;">🧓</span> <span style="color:#8e44ad;">Seniors' Cut</span> <span style="float:right;color:#27ae60;font-weight:bold;">Rs 75</span></li>
+      </ul>
+      <div style="margin-bottom:0.7em;"><b style="color:#465a77;">Beard & Color</b></div>
+      <ul style="list-style:none;padding-left:0;margin-bottom:0.7em;">
+        <li><span style="font-size:1.2em;">🧔</span> <span style="color:#d35400;">Beard Trim</span> <span style="float:right;color:#2980b9;font-weight:bold;">Rs 50</span></li>
+        <li><span style="font-size:1.2em;">🪒</span> <span style="color:#c0392b;">Shave Normal</span> <span style="float:right;color:#2980b9;font-weight:bold;">Rs 25</span></li>
+        <li><span style="font-size:1.2em;">🎨</span> <span style="color:#16a085;">Hair color / Dry</span> <span style="float:right;color:#2980b9;font-weight:bold;">Rs 25</span></li>
+      </ul>
+      <div style="margin-bottom:0.7em;"><b style="color:#465a77;">Combo Deals</b></div>
+      <ul style="list-style:none;padding-left:0;">
+        <li><span style="font-size:1.2em;">💇‍♂️+🎨</span> <span style="color:#e67e22;">Haircut + hair color/Dry</span> <span style="float:right;color:#e67e22;font-weight:bold;">Rs 125</span></li>
+        <li><span style="font-size:1.2em;">💇‍♂️+🧔</span> <span style="color:#8e44ad;">Haircut + Beard Trim</span> <span style="float:right;color:#8e44ad;font-weight:bold;">Rs 150</span></li>
+        <li><span style="font-size:1.2em;">💇‍♂️+🪒+🎨</span> <span style="color:#16a085;">Haircut + Shave + hair color/Dry</span> <span style="float:right;color:#16a085;font-weight:bold;">Rs 175</span></li>
+      </ul>
+    </div>
+    ''', unsafe_allow_html=True)
     if st.button('Close', key='close_pricing_sidebar'):
         st.session_state['show_pricing_sidebar'] = False
 
