@@ -419,7 +419,7 @@ def render_month_grid(barber_id: str, service_id: str):
 # Streamlit App
 # -----------------------------
 
-st.set_page_config(page_title="The Groom Room", page_icon="✂️", layout="wide")
+st.set_page_config(page_title="The Groom Room", page_icon="488", layout="wide")
 # Enhanced mobile-friendly CSS for calendar grid
 st.markdown('''
     <style>
@@ -612,54 +612,38 @@ with cal_tab:
             customer_phone = st.text_input("Phone", placeholder="e.g., +2305xxxxxx", key='cal_phone')
             # Multi-select for services
             # Always show all services in the specified order, regardless of DB content
-            service_options = [
-                "Men's Haircut (Rs 100)",
-                "Kids' Haircut (under 15) (Rs 75)",
-                "Seniors' Cut (Rs 75)",
-                "Beard Trim (Rs 50)",
-                "Shave Normal (Rs 25)",
-                "Hair color / Dry (Rs 25)",
-                "Haircut + hair color/Dry (Rs 125)",
-                "Haircut + Beard Trim (Rs 150)",
-                "Haircut + Shave + hair color/Dry (Rs 175)"
-            ]
-            name_map = {
-                "Men's Haircut (Rs 100)": "Men's Haircut",
-                "Kids' Haircut (under 15) (Rs 75)": "Kids' Haircut (under 15)",
-                "Seniors' Cut (Rs 75)": "Seniors' Cut",
-                "Beard Trim (Rs 50)": "Beard Trim",
-                "Shave Normal (Rs 25)": "Shave Normal",
-                "Hair color / Dry (Rs 25)": "Hair color / Dry",
-                "Haircut + hair color/Dry (Rs 125)": "Haircut + hair color/Dry",
-                "Haircut + Beard Trim (Rs 150)": "Haircut + Beard Trim",
-                "Haircut + Shave + hair color/Dry (Rs 175)": "Haircut + Shave + hair color/Dry"
-            }
-            # For each option, try to get the service id from the DB, fallback to None if not found
-            service_name_to_id = {}
-            for opt in service_options:
-                db_name = name_map[opt]
-                match = services_df[services_df['name'] == db_name]
-                service_name_to_id[opt] = match['id'].iloc[0] if not match.empty else None
-
-            selected_services = st.multiselect("Select service(s)", service_options, default=[], key='cal_services')
-
-            # ✅ FIXED: Calculate prices using DB values (no fragile string parsing)
+            service_options = [f"{row['name']} (Rs {int(row['price'])})" for _, row in services_df.iterrows()]
+            name_map = {f"{row['name']} (Rs {int(row['price'])})": row['name'] for _, row in services_df.iterrows()}
+            # Use a stable key for the multiselect widget
+            selected_services = st.multiselect(
+                "Select service(s)",
+                options=service_options,
+                default=st.session_state.get('selected_services_default', []),
+                key="cal_services"
+            )
+            st.write("DEBUG Selected services:", selected_services)
+            st.write("DEBUG Session state:", st.session_state)
+            # Calculate prices using DB values
             total_price = 0
-            if selected_services and len(selected_services) > 0:
+            if selected_services:
                 st.markdown("**Selected services and prices:**", unsafe_allow_html=True)
                 for s in selected_services:
-                    db_name = name_map[s]
-                    # Get price straight from services_df
-                    price_row = services_df.loc[services_df['name'] == db_name, 'price']
-                    price = float(price_row.values[0]) if not price_row.empty else 0
+                    db_name = name_map.get(s, None)
+                    if db_name is None:
+                        st.warning(f"Could not find mapping for: {s}")
+                        continue
+                    db_match = services_df[services_df['name'].str.strip() == db_name.strip()]
+                    if db_match.empty:
+                        st.warning(f"Database entry for '{db_name}' not found!")
+                        continue
+                    price = float(db_match['price'].values[0])
                     st.write(f"- {db_name} (Rs {int(price) if price.is_integer() else price})")
                     total_price += price
-                # Render integer if whole number
-                total_display = int(total_price) if float(total_price).is_integer() else total_price
-                st.markdown(f"**Total: Rs {total_display}**", unsafe_allow_html=True)
+                if total_price > 0:
+                    total_display = int(total_price) if total_price.is_integer() else total_price
+                    st.markdown(f"### **Total: Rs {total_display}**", unsafe_allow_html=True)
             else:
                 st.markdown("<span style='color:#bbb;'>No service selected.</span>", unsafe_allow_html=True)
-
             notes = st.text_area("Notes (optional)", key='cal_notes')
             default_time_str = st.session_state.get('chosen_time', None)
             if default_time_str:
@@ -679,23 +663,29 @@ with cal_tab:
                     st.error("Cannot book appointments for past dates.")
                 else:
                     try:
-                        start_time_val = datetime.strptime(default_time_str, '%H:%M').time()
-                        # For now, only book the first selected service (for compatibility with existing logic)
-                        chosen_service_id = service_name_to_id[selected_services[0]]
-                        if chosen_service_id is None:
-                            st.error("Selected service not found in database. Please contact admin.")
+                        start_time = datetime.strptime(default_time_str, '%H:%M').time()
+                        # Book the first selected service (for compatibility)
+                        first_service_ui = selected_services[0]
+                        db_name = name_map.get(first_service_ui, None)
+                        if db_name is None:
+                            st.error(f"Could not find mapping for: {first_service_ui}")
                         else:
-                            appt_id = create_appointment(
-                                barber_id=cal_barber_id,
-                                service_id=chosen_service_id,
-                                customer_name=customer_name,
-                                customer_phone=''.join([c for c in customer_phone if c.isdigit() or c=='+']),
-                                appt_date=book_date,
-                                start_time=start_time_val,
-                                notes=notes,
-                            )
-                            st.success(f"✅ Booking confirmed for {book_date.strftime('%d/%m/%y')} at {default_time_str}! Ref: {appt_id[:8]}")
-                            st.balloons()
+                            db_match = services_df[services_df['name'].str.strip() == db_name.strip()]
+                            if db_match.empty:
+                                st.error(f"Service '{db_name}' not found in database!")
+                            else:
+                                service_id = db_match['id'].values[0]
+                                appt_id = create_appointment(
+                                    barber_id=cal_barber_id,
+                                    service_id=service_id,
+                                    customer_name=customer_name,
+                                    customer_phone=''.join([c for c in customer_phone if c.isdigit() or c=='+']),
+                                    appt_date=book_date,
+                                    start_time=start_time,
+                                    notes=notes,
+                                )
+                                st.success(f"✅ Booking confirmed for {book_date.strftime('%d/%m/%y')} at {default_time_str}! Ref: {appt_id[:8]}")
+                                st.balloons()
                     except ValueError as e:
                         st.error(str(e))
                     except Exception as ex:
@@ -715,136 +705,135 @@ with cal_tab:
                     conn.commit()
                     conn.close()
                     st.success(f"You have been added to the waitlist for {book_date.strftime('%d/%m/%y')}! We will contact you if a slot opens up.")
-
-with admin_tab:
-    st.subheader("Owner / Admin")
-    # --- DISABLED ADMIN PASSWORD CHECK FOR TESTING ---
-    st.session_state["admin_ok"] = True
-    if st.session_state.get("admin_ok"):
-        st.success("Admin mode active")
-        # --- Admin Date Picker ---
-        if 'admin_cal_date' not in st.session_state:
-            st.session_state['admin_cal_date'] = date.today()
-        # Show selected admin date in DD/MM/YY format above the picker
-        st.markdown(f"**Selected date:** {st.session_state['admin_cal_date'].strftime('%d/%m/%y')}")
-        admin_date = st.date_input("Pick a date to view bookings", value=st.session_state['admin_cal_date'], key='admin_date_input')
-        st.session_state['admin_cal_date'] = admin_date
-        sel_date = admin_date
-        # --- Barber Unavailability Admin UI ---
-        st.write("### Set Barber Unavailability")
-        with st.form("set_unavailability_form"):
-            # Always use the first barber in the list
-            bu_barber_id = barbers_df.iloc[0]['id']
-            bu_date = sel_date
-            st.markdown(f"<b>Date:</b> {bu_date.strftime('%d/%m/%Y')}", unsafe_allow_html=True)
-            full_day = st.checkbox("Full day unavailable", value=True, key='unav_full_day')
-            bu_start = None
-            bu_end = None
-            if not full_day:
-                bu_start = st.time_input("Start time", value=time(8,30), key='unav_start')
-                bu_end = st.time_input("End time", value=time(20,30), key='unav_end')
-            bu_reason = st.text_input("Reason (optional)", key='unav_reason')
-            submit_unav = st.form_submit_button("Add Unavailability")
-            if submit_unav:
-                if not full_day and (bu_start is None or bu_end is None or bu_start >= bu_end):
-                    st.error("Please provide a valid time range.")
-                else:
+    with admin_tab:
+        st.subheader("Owner / Admin")
+        # --- DISABLED ADMIN PASSWORD CHECK FOR TESTING ---
+        st.session_state["admin_ok"] = True
+        if st.session_state.get("admin_ok"):
+            st.success("Admin mode active")
+            # --- Admin Date Picker ---
+            if 'admin_cal_date' not in st.session_state:
+                st.session_state['admin_cal_date'] = date.today()
+            # Show selected admin date in DD/MM/YY format above the picker
+            st.markdown(f"**Selected date:** {st.session_state['admin_cal_date'].strftime('%d/%m/%y')}")
+            admin_date = st.date_input("Pick a date to view bookings", value=st.session_state['admin_cal_date'], key='admin_date_input')
+            st.session_state['admin_cal_date'] = admin_date
+            sel_date = admin_date
+            # --- Barber Unavailability Admin UI ---
+            st.write("### Set Barber Unavailability")
+            with st.form("set_unavailability_form"):
+                # Always use the first barber in the list
+                bu_barber_id = barbers_df.iloc[0]['id']
+                bu_date = sel_date
+                st.markdown(f"<b>Date:</b> {bu_date.strftime('%d/%m/%Y')}", unsafe_allow_html=True)
+                full_day = st.checkbox("Full day unavailable", value=True, key='unav_full_day')
+                bu_start = None
+                bu_end = None
+                if not full_day:
+                    bu_start = st.time_input("Start time", value=time(8,30), key='unav_start')
+                    bu_end = st.time_input("End time", value=time(20,30), key='unav_end')
+                bu_reason = st.text_input("Reason (optional)", key='unav_reason')
+                submit_unav = st.form_submit_button("Add Unavailability")
+                if submit_unav:
+                    if not full_day and (bu_start is None or bu_end is None or bu_start >= bu_end):
+                        st.error("Please provide a valid time range.")
+                    else:
+                        conn = get_conn()
+                        cur = conn.cursor()
+                        cur.execute('''INSERT INTO barber_unavailability (id, barber_id, date, start_time, end_time, reason) VALUES (?, ?, ?, ?, ?, ?)''',
+                            (str(uuid.uuid4()), bu_barber_id, bu_date.isoformat(),
+                             None if full_day else bu_start.strftime('%H:%M'),
+                             None if full_day else bu_end.strftime('%H:%M'),
+                             bu_reason.strip()))
+                        conn.commit()
+                        conn.close()
+                        st.success("Unavailability added!")
+                        st.rerun()
+            # List and manage unavailability for selected barber/date
+            st.write("#### Unavailability Entries for Selected Date")
+            for idx, row in get_barber_unavailability(bu_barber_id, sel_date).iterrows():
+                st.markdown(f"- {row['date']} | "
+                            f"{'Full day' if not row['start_time'] else row['start_time'] + '-' + row['end_time']} | "
+                            f"{row['reason'] if row['reason'] else ''}", unsafe_allow_html=True)
+                if st.button("Delete", key=f"del_unav_{row['id']}"):
                     conn = get_conn()
-                    cur = conn.cursor()
-                    cur.execute('''INSERT INTO barber_unavailability (id, barber_id, date, start_time, end_time, reason) VALUES (?, ?, ?, ?, ?, ?)''',
-                        (str(uuid.uuid4()), bu_barber_id, bu_date.isoformat(),
-                         None if full_day else bu_start.strftime('%H:%M'),
-                         None if full_day else bu_end.strftime('%H:%M'),
-                         bu_reason.strip()))
+                    conn.execute("DELETE FROM barber_unavailability WHERE id=?", (row['id'],))
                     conn.commit()
                     conn.close()
-                    st.success("Unavailability added!")
+                    st.success("Unavailability deleted.")
                     st.rerun()
-        # List and manage unavailability for selected barber/date
-        st.write("#### Unavailability Entries for Selected Date")
-        for idx, row in get_barber_unavailability(bu_barber_id, sel_date).iterrows():
-            st.markdown(f"- {row['date']} | "
-                        f"{'Full day' if not row['start_time'] else row['start_time'] + '-' + row['end_time']} | "
-                        f"{row['reason'] if row['reason'] else ''}", unsafe_allow_html=True)
-            if st.button("Delete", key=f"del_unav_{row['id']}"):
-                conn = get_conn()
-                conn.execute("DELETE FROM barber_unavailability WHERE id=?", (row['id'],))
-                conn.commit()
-                conn.close()
-                st.success("Unavailability deleted.")
-                st.rerun()
-        # --- Existing admin booking/waitlist code ...
-        st.markdown(f"#### Bookings & Waitlist for {sel_date.strftime('%A, %d/%m/%y')}")
-        # Fetch all appointments for all barbers on selected date
-        df = fetch_df(
-            '''SELECT a.id, a.appt_date, a.customer_name, a.customer_phone, a.start_time, a.end_time, s.name as service FROM appointments a JOIN services s ON s.id=a.service_id WHERE a.appt_date=? ORDER BY a.start_time''',
-            (sel_date.isoformat(),)
-        )
-        # Fetch waitlist for this date
-        waitlist_df = fetch_df(
-            '''SELECT id, name, phone, notes, requested_date, created_at FROM waitlist WHERE requested_date=? ORDER BY created_at''',
-            (sel_date.isoformat(),)
-        )
-        # Render as Streamlit table with action buttons
-        st.write('### Bookings')
-        for idx, row in df.iterrows():
-            cols = st.columns([2, 2, 2, 1, 1])
-            phone_display = f"{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank' style='text-decoration:none;'>📞</a>"
-            cols[0].markdown(f"<b>{html.escape(str(row['customer_name']))}</b>", unsafe_allow_html=True)
-            cols[1].markdown(phone_display, unsafe_allow_html=True)
-            cols[2].markdown(f"{row['start_time']} - {row['end_time']}", unsafe_allow_html=True)
-            if cols[3].button('Change', key=f'change_appt_{row["id"]}'):
-                st.session_state['change_appt_id'] = row['id']
-            if cols[4].button('Delete', key=f'delete_appt_{row["id"]}'):
-                delete_appointment(row['id'])
-                st.success('Booking deleted!')
-                st.rerun()
-        st.write('### Waitlist')
-        for idx, row in waitlist_df.iterrows():
-            cols = st.columns([2, 2, 2, 1, 1])
-            cols[0].markdown(f"<b>{html.escape(str(row['name']))}</b>", unsafe_allow_html=True)
-            cols[1].markdown(f"{html.escape(str(row['phone']))} <a href='tel:{''.join([c for c in str(row['phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a>", unsafe_allow_html=True)
-            cols[2].markdown(f"{html.escape(str(row['notes']))}", unsafe_allow_html=True)
-            if cols[3].button('Change', key=f'change_waitlist_{row["id"]}'):
-                st.session_state['change_waitlist_id'] = row['id']
-            if cols[4].button('Delete', key=f'delete_waitlist_{row["id"]}'):
-                conn = get_conn()
-                conn.execute("DELETE FROM waitlist WHERE id=?", (row['id'],))
-                conn.commit()
-                conn.close()
-                st.success('Waitlist entry deleted!')
-                st.rerun()
-        # Handle change actions
-        change_appt_id = st.session_state.get('change_appt_id', None)
-        change_waitlist_id = st.session_state.get('change_waitlist_id', None)
-        if change_appt_id:
-            appt_row = fetch_df("SELECT * FROM appointments WHERE id=?", (change_appt_id,)).iloc[0]
-            new_date = st.date_input("New date", value=datetime.strptime(appt_row['appt_date'], '%Y-%m-%d').date(), key='change_appt_date')
-            slots = available_start_times(appt_row['barber_id'], appt_row['service_id'], new_date)
-            slot_labels = [s.strftime('%H:%M') for s in slots]
-            new_time = st.selectbox("New time", slot_labels, key='change_appt_time')
-            if st.button("Update Booking", key='update_appt_btn'):
-                services = get_services()
-                duration = int(services.loc[services['id'] == appt_row['service_id'], 'duration_min'].iloc[0])
-                new_end = (datetime.combine(new_date, datetime.strptime(new_time, '%H:%M').time()) + timedelta(minutes=duration)).time()
-                conn = get_conn()
-                cur = conn.cursor()
-                cur.execute("UPDATE appointments SET appt_date=?, start_time=?, end_time=? WHERE id=?", (new_date.isoformat(), new_time, new_end.strftime('%H:%M'), change_appt_id))
-                conn.commit()
-                conn.close()
-                st.success(f"Booking updated to {new_date.strftime('%d/%m/%y')} at {new_time}!")
-                st.session_state['change_appt_id'] = None
-                st.rerun()
-        if change_waitlist_id:
-            wait_row = fetch_df("SELECT * FROM waitlist WHERE id=?", (change_waitlist_id,)).iloc[0]
-            new_date = st.date_input("New requested date", value=datetime.strptime(wait_row['requested_date'], '%Y-%m-%d').date(), key='change_waitlist_date')
-            new_notes = st.text_area("Notes (optional, can include time)", value=wait_row['notes'], key='change_waitlist_notes')
-            if st.button("Update Waitlist Entry", key='update_waitlist_btn'):
-                conn = get_conn()
-                cur = conn.cursor()
-                cur.execute("UPDATE waitlist SET requested_date=?, notes=? WHERE id=?", (new_date.isoformat(), new_notes, change_waitlist_id))
-                conn.commit()
-                conn.close()
-                st.success(f"Waitlist entry updated to {new_date.strftime('%d/%m/%y')}!")
-                st.session_state['change_waitlist_id'] = None
-                st.rerun()
+            # --- Existing admin booking/waitlist code ...
+            st.markdown(f"#### Bookings & Waitlist for {sel_date.strftime('%A, %d/%m/%y')}")
+            # Fetch all appointments for all barbers on selected date
+            df = fetch_df(
+                '''SELECT a.id, a.appt_date, a.customer_name, a.customer_phone, a.start_time, a.end_time, s.name as service FROM appointments a JOIN services s ON s.id=a.service_id WHERE a.appt_date=? ORDER BY a.start_time''',
+                (sel_date.isoformat(),)
+            )
+            # Fetch waitlist for this date
+            waitlist_df = fetch_df(
+                '''SELECT id, name, phone, notes, requested_date, created_at FROM waitlist WHERE requested_date=? ORDER BY created_at''',
+                (sel_date.isoformat(),)
+            )
+            # Render as Streamlit table with action buttons
+            st.write('### Bookings')
+            for idx, row in df.iterrows():
+                cols = st.columns([2, 2, 2, 1, 1])
+                phone_display = f"{html.escape(str(row['customer_phone']))} <a href='tel:{''.join([c for c in str(row['customer_phone']) if c.isdigit() or c=='+'])}' target='_blank' style='text-decoration:none;'>📞</a>"
+                cols[0].markdown(f"<b>{html.escape(str(row['customer_name']))}</b>", unsafe_allow_html=True)
+                cols[1].markdown(phone_display, unsafe_allow_html=True)
+                cols[2].markdown(f"{row['start_time']} - {row['end_time']}", unsafe_allow_html=True)
+                if cols[3].button('Change', key=f'change_appt_{row["id"]}'):
+                    st.session_state['change_appt_id'] = row['id']
+                if cols[4].button('Delete', key=f'delete_appt_{row["id"]}'):
+                    delete_appointment(row['id'])
+                    st.success('Booking deleted!')
+                    st.rerun()
+            st.write('### Waitlist')
+            for idx, row in waitlist_df.iterrows():
+                cols = st.columns([2, 2, 2, 1, 1])
+                cols[0].markdown(f"<b>{html.escape(str(row['name']))}</b>", unsafe_allow_html=True)
+                cols[1].markdown(f"{html.escape(str(row['phone']))} <a href='tel:{''.join([c for c in str(row['phone']) if c.isdigit() or c=='+'])}' target='_blank'>📞</a>", unsafe_allow_html=True)
+                cols[2].markdown(f"{html.escape(str(row['notes']))}", unsafe_allow_html=True)
+                if cols[3].button('Change', key=f'change_waitlist_{row["id"]}'):
+                    st.session_state['change_waitlist_id'] = row['id']
+                if cols[4].button('Delete', key=f'delete_waitlist_{row["id"]}'):
+                    conn = get_conn()
+                    conn.execute("DELETE FROM waitlist WHERE id=?", (row['id'],))
+                    conn.commit()
+                    conn.close()
+                    st.success('Waitlist entry deleted!')
+                    st.rerun()
+            # Handle change actions
+            change_appt_id = st.session_state.get('change_appt_id', None)
+            change_waitlist_id = st.session_state.get('change_waitlist_id', None)
+            if change_appt_id:
+                appt_row = fetch_df("SELECT * FROM appointments WHERE id=?", (change_appt_id,)).iloc[0]
+                new_date = st.date_input("New date", value=datetime.strptime(appt_row['appt_date'], '%Y-%m-%d').date(), key='change_appt_date')
+                slots = available_start_times(appt_row['barber_id'], appt_row['service_id'], new_date)
+                slot_labels = [s.strftime('%H:%M') for s in slots]
+                new_time = st.selectbox("New time", slot_labels, key='change_appt_time')
+                if st.button("Update Booking", key='update_appt_btn'):
+                    services = get_services()
+                    duration = int(services.loc[services['id'] == appt_row['service_id'], 'duration_min'].iloc[0])
+                    new_end = (datetime.combine(new_date, datetime.strptime(new_time, '%H:%M').time()) + timedelta(minutes=duration)).time()
+                    conn = get_conn()
+                    cur = conn.cursor()
+                    cur.execute("UPDATE appointments SET appt_date=?, start_time=?, end_time=? WHERE id=?", (new_date.isoformat(), new_time, new_end.strftime('%H:%M'), change_appt_id))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"Booking updated to {new_date.strftime('%d/%m/%y')} at {new_time}!")
+                    st.session_state['change_appt_id'] = None
+                    st.rerun()
+            if change_waitlist_id:
+                wait_row = fetch_df("SELECT * FROM waitlist WHERE id=?", (change_waitlist_id,)).iloc[0]
+                new_date = st.date_input("New requested date", value=datetime.strptime(wait_row['requested_date'], '%Y-%m-%d').date(), key='change_waitlist_date')
+                new_notes = st.text_area("Notes (optional, can include time)", value=wait_row['notes'], key='change_waitlist_notes')
+                if st.button("Update Waitlist Entry", key='update_waitlist_btn'):
+                    conn = get_conn()
+                    cur = conn.cursor()
+                    cur.execute("UPDATE waitlist SET requested_date=?, notes=? WHERE id=?", (new_date.isoformat(), new_notes, change_waitlist_id))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"Waitlist entry updated to {new_date.strftime('%d/%m/%y')}!")
+                    st.session_state['change_waitlist_id'] = None
+                    st.rerun()
