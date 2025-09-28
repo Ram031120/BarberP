@@ -28,7 +28,6 @@ def init_db():
         );
         """
     )
-
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS services (
@@ -484,6 +483,9 @@ if 'show_pricing_sidebar' not in st.session_state:
 if 'pricing_btn_counter' not in st.session_state:
     st.session_state['pricing_btn_counter'] = 0
 
+barbers_df = get_barbers()
+services_df = get_services()
+
 # --- Place Show Pricing button at the very top left ---
 top_cols = st.columns([1, 8])
 with top_cols[0]:
@@ -491,6 +493,65 @@ with top_cols[0]:
     if show_pricing_clicked:
         st.session_state['show_pricing_sidebar'] = True
         st.session_state['pricing_btn_counter'] += 1  # Only increment here
+
+# Move pricing list to main page, below header, and show/expand when button is clicked
+if False and st.session_state.get('show_pricing_sidebar', False):
+    # Generate dynamic pricing list from DB
+    haircuts = []
+    beard_color = []
+    combos = []
+    for _, row in services_df.iterrows():
+        name = row['name']
+        price = row['price']
+        price_str = f"Rs {int(price) if price.is_integer() else price}"
+        if 'Haircut' in name and '+' not in name:
+            if 'Kids' in name:
+                haircuts.append(f'<li><span style="font-size:1.2em;">🧒</span> <span style="color:#e67e22;">{name}</span> <span style="float:right;color:#27ae60;font-weight:bold;">{price_str}</span></li>')
+            elif 'Seniors' in name:
+                haircuts.append(f'<li><span style="font-size:1.2em;">�</span> <span style="color:#8e44ad;">{name}</span> <span style="float:right;color:#27ae60;font-weight:bold;">{price_str}</span></li>')
+            else:
+                haircuts.append(f'<li><span style="font-size:1.2em;">👨</span> <span style="color:#2d8cff;">{name}</span> <span style="float:right;color:#27ae60;font-weight:bold;">{price_str}</span></li>')
+        elif 'Beard' in name or 'Shave' in name or 'color' in name:
+            if 'Beard' in name:
+                beard_color.append(f'<li><span style="font-size:1.2em;">🧔</span> <span style="color:#d35400;">{name}</span> <span style="float:right;color:#2980b9;font-weight:bold;">{price_str}</span></li>')
+            elif 'Shave' in name:
+                beard_color.append(f'<li><span style="font-size:1.2em;">🪒</span> <span style="color:#c0392b;">{name}</span> <span style="float:right;color:#2980b9;font-weight:bold;">{price_str}</span></li>')
+            else:
+                beard_color.append(f'<li><span style="font-size:1.2em;">🎨</span> <span style="color:#16a085;">{name}</span> <span style="float:right;color:#2980b9;font-weight:bold;">{price_str}</span></li>')
+        elif '+' in name:
+            combos.append(f'<li><span style="font-size:1.2em;">💇‍♂️+🪒+🎨</span> <span style="color:#16a085;">{name}</span> <span style="float:right;color:#16a085;font-weight:bold;">{price_str}</span></li>')
+    
+    haircuts_html = '\n        '.join(haircuts)
+    beard_color_html = '\n        '.join(beard_color)
+    combos_html = '\n        '.join(combos)
+    
+    st.markdown(f'''
+    <div style="background:#f7f7fa;border-radius:10px;padding:1.2em 1.5em 1.2em 1.5em;margin-bottom:1em;box-shadow:0 2px 8px #e0e0e0;max-width:480px;">
+      <h3 style="margin-top:0;margin-bottom:0.7em;font-size:1.3em;color:#465a77;">✂️� <span style="color:#222;">Barber Shop Price List</span></h3>
+      <div style="margin-bottom:0.7em;"><b style="color:#465a77;">Haircuts</b></div>
+      <ul style="list-style:none;padding-left:0;margin-bottom:0.7em;">
+        {haircuts_html}›
+      </ul>
+      <div style="margin-bottom:0.7em;"><b style="color:#465a77;">Beard & Color</b></div>
+      <ul style="list-style:none;padding-left:0;margin-bottom:0.7em;">
+        {beard_color_html}
+      </ul>
+      <div style="margin-bottom:0.7em;"><b style="color:#465a77;">Combo Deals</b></div>
+      <ul style="list-style:none;padding-left:0;">
+        {combos_html}
+      </ul>
+    </div>
+    ''', unsafe_allow_html=True)
+    if st.button('Close', key='close_pricing_sidebar_old'):
+        st.session_state['show_pricing_sidebar'] = False
+
+# Hide sidebar if user interacts with main area (simulate click outside)
+def hide_sidebar_on_interaction():
+    if st.session_state.get('show_pricing_sidebar', False):
+        st.session_state['show_pricing_sidebar'] = False
+
+barbers_df = get_barbers()
+services_df = get_services()
 
 # Move pricing list to main page, below header, and show/expand when button is clicked
 if st.session_state.get('show_pricing_sidebar', False):
@@ -520,14 +581,6 @@ if st.session_state.get('show_pricing_sidebar', False):
     if st.button('Close', key='close_pricing_sidebar'):
         st.session_state['show_pricing_sidebar'] = False
 
-# Hide sidebar if user interacts with main area (simulate click outside)
-def hide_sidebar_on_interaction():
-    if st.session_state.get('show_pricing_sidebar', False):
-        st.session_state['show_pricing_sidebar'] = False
-
-barbers_df = get_barbers()
-services_df = get_services()
-
 # Tabs
 cal_tab, admin_tab = st.tabs(["Calendar", "Admin"])
 
@@ -536,8 +589,8 @@ with cal_tab:
     # Use default barber/service (first in list) for calendar tab
     cal_barber_id = barbers_df.iloc[0]['id']
     cal_service_id = services_df.iloc[0]['id']
-    # Show selected date in DD/MM/YY format above the picker
-    st.markdown(f"**Selected date:** {st.session_state['book_date'].strftime('%d/%m/%y')}")
+    # Show selected date in YYYY/MM/DD format above the picker
+    st.markdown(f"**Selected date:** {st.session_state['book_date'].strftime('%Y/%m/%d')}")
     picked_date = st.date_input("Pick a date", value=st.session_state['book_date'], min_value=date.today(), key='date_input_main')
     if picked_date != st.session_state['book_date']:
         st.session_state['book_date'] = picked_date
@@ -606,44 +659,71 @@ with cal_tab:
 
         # Quick booking form right in the calendar tab
         # Only show the waitlist form if not already inside a form
+        # Multi-select for services
+        # Always show all services in the specified order, regardless of DB content
+        service_options = [
+            "Men's Haircut (Rs 100)",
+            "Kids' Haircut (under 15) (Rs 75)",
+            "Seniors' Cut (Rs 75)",
+            "Beard Trim (Rs 50)",
+            "Shave Normal (Rs 25)",
+            "Hair color / Dry (Rs 25)",
+            "Haircut + hair color/Dry (Rs 125)",
+            "Haircut + Beard Trim (Rs 150)",
+            "Haircut + Shave + hair color/Dry (Rs 175)",
+        ]
+        name_map = {
+            "Men's Haircut (Rs 100)": "Men's Haircut",
+            "Kids' Haircut (under 15) (Rs 75)": "Kids' Haircut (under 15)",
+            "Seniors' Cut (Rs 75)": "Seniors' Cut",
+            "Beard Trim (Rs 50)": "Beard Trim",
+            "Shave Normal (Rs 25)": "Shave Normal",
+            "Hair color / Dry (Rs 25)": "Hair color / Dry",
+            "Haircut + hair color/Dry (Rs 125)": "Haircut + hair color/Dry",
+            "Haircut + Beard Trim (Rs 150)": "Haircut + Beard Trim",
+            "Haircut + Shave + hair color/Dry (Rs 175)": "Haircut + Shave + hair color/Dry",
+        }
+        # Use a stable key for the multiselect widget
+        selected_services = st.multiselect(
+            "Select service(s)",
+            options=service_options,
+            default=st.session_state.get('selected_services_default', []),
+            key="cal_services"
+        )
+        # Calculate prices using DB values
+        total_price = 0
+        if selected_services:
+            st.markdown("**Selected services and prices:**", unsafe_allow_html=True)
+            for s in selected_services:
+                db_name = name_map.get(s, None)
+                if db_name is None:
+                    st.warning(f"Could not find mapping for: {s}")
+                    continue
+                db_match = services_df[services_df['name'].str.strip() == db_name.strip()]
+                if db_match.empty:
+                    st.warning(f"Database entry for '{db_name}' not found!")
+                    continue
+                price = float(db_match['price'].values[0])
+                st.write(f"- {db_name} (Rs {int(price) if price.is_integer() else price})")
+                total_price += price
+        else:
+            st.markdown("<span style='color:#bbb;'>No service selected.</span>", unsafe_allow_html=True)
+        # Always show total
+        total_display = int(total_price) if total_price.is_integer() else total_price
+        st.markdown(f"### **Total: Rs {total_display}**", unsafe_allow_html=True)
+
         with st.form("quick_book_form"):
             st.write("### Confirm & get ready to shine")
             customer_name = st.text_input("Your name", key='cal_name')
             customer_phone = st.text_input("Phone", placeholder="e.g., +2305xxxxxx", key='cal_phone')
-            # Multi-select for services
-            # Always show all services in the specified order, regardless of DB content
-            service_options = [f"{row['name']} (Rs {int(row['price'])})" for _, row in services_df.iterrows()]
-            name_map = {f"{row['name']} (Rs {int(row['price'])})": row['name'] for _, row in services_df.iterrows()}
-            # Use a stable key for the multiselect widget
-            selected_services = st.multiselect(
-                "Select service(s)",
-                options=service_options,
-                default=st.session_state.get('selected_services_default', []),
-                key="cal_services"
-            )
-            st.write("DEBUG Selected services:", selected_services)
-            st.write("DEBUG Session state:", st.session_state)
-            # Calculate prices using DB values
-            total_price = 0
+            # Show selected services
             if selected_services:
-                st.markdown("**Selected services and prices:**", unsafe_allow_html=True)
+                st.markdown("**Your selected services:**")
                 for s in selected_services:
-                    db_name = name_map.get(s, None)
-                    if db_name is None:
-                        st.warning(f"Could not find mapping for: {s}")
-                        continue
-                    db_match = services_df[services_df['name'].str.strip() == db_name.strip()]
-                    if db_match.empty:
-                        st.warning(f"Database entry for '{db_name}' not found!")
-                        continue
-                    price = float(db_match['price'].values[0])
-                    st.write(f"- {db_name} (Rs {int(price) if price.is_integer() else price})")
-                    total_price += price
-                if total_price > 0:
-                    total_display = int(total_price) if total_price.is_integer() else total_price
-                    st.markdown(f"### **Total: Rs {total_display}**", unsafe_allow_html=True)
+                    db_name = name_map.get(s, s)
+                    st.write(f"- {db_name}")
             else:
-                st.markdown("<span style='color:#bbb;'>No service selected.</span>", unsafe_allow_html=True)
+                st.write("No services selected.")
             notes = st.text_area("Notes (optional)", key='cal_notes')
             default_time_str = st.session_state.get('chosen_time', None)
             if default_time_str:
@@ -715,7 +795,7 @@ with cal_tab:
             if 'admin_cal_date' not in st.session_state:
                 st.session_state['admin_cal_date'] = date.today()
             # Show selected admin date in DD/MM/YY format above the picker
-            st.markdown(f"**Selected date:** {st.session_state['admin_cal_date'].strftime('%d/%m/%y')}")
+            st.markdown(f"**Selected date:** {st.session_state['admin_cal_date'].strftime('%Y/%m/%d')}")
             admin_date = st.date_input("Pick a date to view bookings", value=st.session_state['admin_cal_date'], key='admin_date_input')
             st.session_state['admin_cal_date'] = admin_date
             sel_date = admin_date
@@ -837,3 +917,17 @@ with cal_tab:
                     st.success(f"Waitlist entry updated to {new_date.strftime('%d/%m/%y')}!")
                     st.session_state['change_waitlist_id'] = None
                     st.rerun()
+
+            st.write("### Manage Services")
+            services_df = get_services()
+            edited_df = st.data_editor(services_df[['name', 'duration_min', 'price']], num_rows="fixed")
+            if st.button("Save Service Changes"):
+                conn = get_conn()
+                cur = conn.cursor()
+                for idx, row in edited_df.iterrows():
+                    service_id = services_df.iloc[idx]['id']
+                    cur.execute("UPDATE services SET name=?, duration_min=?, price=? WHERE id=?", (row['name'], row['duration_min'], row['price'], service_id))
+                conn.commit()
+                conn.close()
+                st.success("Services updated!")
+                st.rerun()
